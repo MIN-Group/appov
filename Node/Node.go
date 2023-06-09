@@ -41,6 +41,10 @@ type Node struct {
 	config         *ConfigHelper.Config
 	txPool         *utils.TransactionPool
 	syncTool       *SynchronizeModule
+
+	//来自其他分片的区块组
+	votingstatistics chan *MetaData.BlockGroup
+
 	//各种控制状态
 	state chan int //系统状态
 
@@ -93,6 +97,9 @@ type Node struct {
 	GenerateVoteTime             time.Time
 	GenerateBlockGroupHeaderTime time.Time
 	CommitTime                   time.Time
+
+	//xzw test
+	MimicBlockGroup []*MetaData.BlockGroup
 }
 
 func (node *Node) CreateBlockGroup() MetaData.BlockGroup {
@@ -356,6 +363,92 @@ func (node *Node) GenerateVote() {
 }
 
 //轮值记账节点生成区块组头部并发布
+func (node *Node) MultimodeAdjudication() {
+	if !node.NormalGenerateBlockGroupHeaderDone {
+		// 从缓存里取出最新的区块组
+		value, ok := node.BlockGroups.Load(node.mongo.GetHeight() + 1)
+		if ok {
+			item := value.(MetaData.BlockGroup)
+			var count int = 0
+			for _, y := range item.VoteTickets {
+				//统计有区块Hash和对应投票的投票结果个数
+				if y.BlockHashes != nil && y.VoteResult != nil {
+					count += 1
+				}
+				// 检查是否超时，有效的投票结果不能少于投票节点个数
+				if !node.isTimeout2 && count < node.config.VotedNum {
+					return
+				}
+
+				// 新加部分
+				{
+					pubkey := node.keymanager.GetPubkey()
+					duty_pubkey, _ := node.accountManager.WorkerNumberSet[node.true_dutyWorkerNum]
+					if duty_pubkey == pubkey {
+						item.ExecutionResult = make(map[string]bool)
+						headermsg, blockmsg := node.msgManager.CreatePublishBlockGroupMsg(0, item.Height, node.config.MinicNum)
+						blockmsg.Group = item
+						node.SendMessageToMinic(headermsg, &blockmsg)
+					}
+				}
+
+				for {
+					if len(node.MimicBlockGroup) == len(node.network.MinicList) {
+						break
+					}
+				}
+
+				items := node.MimicBlockGroup
+
+				new_item, is_complete := node.VotingStatisticsforMimic(item, items)
+				//new_item, is_complete := node.VotingStatistics(item, items)
+				if !is_complete {
+					return
+				}
+				node.MimicBlockGroup = node.MimicBlockGroup[:]
+
+				node.GenerateBlockGroupHeaderTime = time.Now()
+				fmt.Println("generate vote --> generate header -->", time.Since(node.GenerateVoteTime))
+				//var  sumTime float64 = 0
+				//for _, eachVoteTic := range item.VoteTickets {
+				//	sumTime += eachVoteTic.Timestamp
+				//}
+				new_item.NextDutyWorker = (node.dutyWorkerNumber + 1) % uint32(node.config.WorkerNum)
+
+				new_item.Height = node.mongo.GetHeight() + 1
+				new_item.Generator = node.config.MyPubkey
+				headerBytes, _ := node.mongo.Block.ToHeaderBytes(nil)
+				new_item.PreviousHash = KeyManager.GetHash(headerBytes)
+				new_item.Timestamp = utils.GetCurrentTime()
+				var temp_header MetaData.BlockGroup
+				temp_header = new_item
+				temp_header.VoteTickets = nil
+				tempHeaderBytes, _ := temp_header.ToHeaderBytes(nil)
+				tempHeaderBytes_hash := KeyManager.GetHash(tempHeaderBytes)
+				new_item.Sig, _ = node.keymanager.Sign(tempHeaderBytes_hash)
+
+				//node.SendTransactionMsgToManagementServer(new_item)		//Front end
+
+				var blockgroupheadermsg Message.BlockGroupHeader
+				blockgroupheadermsg.Data, _ = new_item.ToHeaderBytes(nil)
+
+				//var group MetaData.BlockGroup
+				//group.FromHeaderBytes(blockgroupheadermsg.Data)
+
+				var msgheader Message.MessageHeader //消息头
+				msgheader.Sender = node.network.MyNodeInfo.ID
+				msgheader.Receiver = 0
+				msgheader.Pubkey = node.config.MyPubkey
+				msgheader.MsgType = Message.BlockGroupHeaderMsg
+				node.SendMessage(msgheader, &blockgroupheadermsg)
+				node.NormalGenerateBlockGroupHeaderDone = true
+				//fmt.Println("GenerateBlockGroupHeader",new_item.Height,"done!")
+			}
+		}
+	}
+}
+
+//轮值记账节点生成区块组头部并发布
 func (node *Node) GenerateBlockGroupHeader() {
 	if !node.NormalGenerateBlockGroupHeaderDone {
 		value, ok := node.BlockGroups.Load(node.mongo.GetHeight() + 1)
@@ -426,13 +519,18 @@ func (node *Node) Commit() {
 	flag := true
 	if ok {
 		item := value.(MetaData.BlockGroup)
+		// 检查是否收到区块组头
 		if item.ReceivedBlockGroupHeader {
+			// 遍历其中的投票结果
 			for k, v := range item.VoteResult {
+				// 如果是赞成票
 				if v == 1 {
+					// 相应的区块的IsSet是不是为true
 					if !item.Blocks[k].IsSet {
 						flag = false
 						break
 					} else {
+						// 检查区块头hash是否与所记录的hash相同（防篡改）
 						block := item.Blocks[k]
 						data := block.GetBlockHeaderBytes()
 						if !bytes.Equal(item.BlockHashes[k], KeyManager.GetHash(data)) {
@@ -443,28 +541,33 @@ func (node *Node) Commit() {
 					}
 				}
 			}
+			//上述检验都通过
 			if flag {
 				//同步区块时所有区块组都通过Commit函数执行提交操作，需要对创世区块组进行特殊处理
 				node.CommitTime = time.Now()
 				if node.accountManager.WorkerNumberSet[node.true_dutyWorkerNum] == node.keymanager.GetPubkey() {
+					// 是轮值记账节点就统计生成区块组头的时间
 					fmt.Println("generate header --> commit", time.Since(node.GenerateBlockGroupHeaderTime))
 				} else {
+					// 不是就统计产生投票的时间
 					fmt.Println("generate vote --> commit", time.Since(node.GenerateVoteTime))
 				}
-
+				// 对创世区块组进行特殊处理
 				if height == 0 {
 					node.UpdateGenesisBlockVaribles(&item)
 					if len(node.state) == 1 {
 						<-node.state
 					}
 				} else {
-					//node.SendNormalMsgToManagementServer()
+					// 非创世区块组进行的一般处理
+					// node.SendNormalMsgToManagementServer()
 					time1 := time.Now()
 					node.UpdateVaribles(&item)
 					fmt.Println("commit ", time.Since(time1))
 				} //更新变量
 				node.mongo.PushbackBlockToDatabase(item) //数据落盘
 
+				// 重置一些参数，为下一轮共识做准备
 				node.NormalGenerateVoteDone = false
 				node.NormalGenerateBlockDone = false
 				node.NormalGenerateBlockGroupHeaderDone = false
@@ -772,11 +875,23 @@ func (node *Node) HandleMessage(data []byte, conn net.Conn) {
 		var msg Message.PublishBlockGroupMsg
 		err = msg.FromByteArray(data)
 		node.HandlePublishBlockGroup(msg)
+		node.HandlePublishMimicBlockGroup(msg)
 	}
+}
+
+func (node *Node) HandlePublishMimicBlockGroup(msg Message.PublishBlockGroupMsg) {
+	for _, blockgroup := range node.MimicBlockGroup {
+		if blockgroup.Generator != msg.Group.Generator {
+			node.MimicBlockGroup = append(node.MimicBlockGroup, &msg.Group)
+			break
+		}
+	}
+	//fmt.Println("来自编号"+strconv.Itoa(msg.MinicNum)+"的共识组高度为"+strconv.Itoa(msg.Group.Height)+"的区块组成功保存", len(group.ExecutionResult), "个交易", "true :", sum)
 }
 
 func (node *Node) HandlePublishBlockGroup(msg Message.PublishBlockGroupMsg) {
 	group := msg.Group
+
 	node.UpdateMinicVaribles(&group)
 	node.mongo.PushbackMinicBlockToDatabase(group, msg.MinicNum)
 
@@ -788,6 +903,21 @@ func (node *Node) HandlePublishBlockGroup(msg Message.PublishBlockGroupMsg) {
 	}
 	fmt.Println("来自编号"+strconv.Itoa(msg.MinicNum)+"的共识组高度为"+strconv.Itoa(msg.Group.Height)+"的区块组成功保存", len(group.ExecutionResult), "个交易", "true :", sum)
 }
+
+//// 新增迭代判断
+//func (node *Node) CheckPublishBlockGroup(bg *MetaData.BlockGroup) {
+//	//检查收到的投票结果，有几个分片就有几个投票结果 map[拟态编号 int]Voticket  Voticket <=> map[区块/交易Hash]int(票数) 或者就是一个票数数组[3,3,3,3]
+//
+//	if {
+//
+//	} else {
+//
+//	}
+//	//迭代结束条件是否满足，如果满足则commit，Q：怎么处理同步问题
+//
+//	//如果不满足则，继续发信息去迭代
+//
+//}
 
 func (node *Node) HandleQueryPubMessage(msg Message.QueryPubkeyMsg, pre_sender Network.NodeID) {
 

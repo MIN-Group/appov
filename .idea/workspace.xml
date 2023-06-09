@@ -4,11 +4,27 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1b19dc1f-b18e-4402-8ccf-c17a16fe284c" name="Changes" comment="" />
+    <list default="true" id="1b19dc1f-b18e-4402-8ccf-c17a16fe284c" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/Node/MultiAdjudication.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Message/PublishBlockGroupMsg.go" beforeDir="false" afterPath="$PROJECT_DIR$/Message/PublishBlockGroupMsg.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Node/Node.go" beforeDir="false" afterPath="$PROJECT_DIR$/Node/Node.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Node/VotingStatistics.go" beforeDir="false" afterPath="$PROJECT_DIR$/Node/VotingStatistics.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/conf" beforeDir="false" afterPath="$PROJECT_DIR$/conf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ppov" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/test/main.go" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
   </component>
   <component name="GOROOT" url="file:///opt/homebrew/Cellar/go/1.18.4/libexec" />
   <component name="Git.Settings">
@@ -24,6 +40,7 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;DefaultGoTemplateProperty&quot;: &quot;Go File&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.go.format.on.save.advertiser.fired&quot;: &quot;true&quot;,
@@ -47,6 +64,15 @@
       <filePath value="$PROJECT_DIR$" />
       <method v="2" />
     </configuration>
+    <configuration name="go build ppov/test" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="ppov_mimic" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="ppov/test" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/test/main.go" />
+      <method v="2" />
+    </configuration>
     <configuration default="true" type="GoTestRunConfiguration" factoryName="Go Test">
       <module name="ppov_mimic" />
       <working_directory value="$PROJECT_DIR$" />
@@ -57,10 +83,26 @@
       <framework value="gotest" />
       <method v="2" />
     </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Build.go build ppov/test" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
